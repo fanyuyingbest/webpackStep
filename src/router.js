@@ -3,8 +3,8 @@ import foo from './views/foo'
 import bar from './views/bar'
 
 const routes = {
-  './foo': foo,
-  './bar': bar
+  '/foo': foo,
+  '/bar': bar
 }
 
 // Router l类，用来控制页面根据当前 URl 切换
@@ -30,8 +30,8 @@ class Router {
     if (path === '/') {
       path = '/foo'
     }
-    //const view = new routes[path]()
-    //view.mount(document.body)
+    const view = new routes[path]()
+    view.mount(document.body)
   }
 }
 
