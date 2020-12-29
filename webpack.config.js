@@ -1,7 +1,11 @@
 const { resolve } = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
-// const history = require('connect-history-api-fallback')
-// const convert = require('koa-connect')
+const history = require('connect-history-api-fallback')
+const convert = require('koa-connect')
+// const { webpack } = require('webpack')
+const internalIp = require('internal-ip')
+const url = require('url')
+const config = require('./config/' + (process.env.npm_config_config || 'default'))
 
 // 检查环境，测试环境才开启webpack-serve
 const dev = Boolean(process.env.WEBPACK_SERVE)
@@ -22,14 +26,24 @@ module.exports = {
   devtool: dev ? 'cheap-module-eval-source-map' : 'hidden-source-map',
 
   // 配置入口文件
-  entry: './src/index.js',
+  entry: {
+    main: './src/index.js'
+  },
 
+  optimization: {
+    runtimeChunk: true,
+    splitChunks: {
+      chunks: 'all'
+    }
+  },
   // 配置打包输出文件
   output: {
     // 打包输出目录
-    path: resolve(__dirname, 'dist'),
+    path: resolve(__dirname, 'assets'),
     // 入口 js 的打包输出文件名
-    filename: 'index.js'
+    filename: dev ? '[name]js' : '[chunkhash].js',
+    publicPath: config.publicPath,
+    chunkFilename: '[chunkhash].js'
   },
 
   module: {
@@ -55,8 +69,32 @@ module.exports = {
           使用html-loader，将 html内容存为js字符串
           例如：import htmlString from './template.html',html的文件的内容会被转为一个js的字符串，合并到js文件中
         */
-        use: 'html-loader'
+        use: [
+          {
+            loader: 'html-loader',
+            options: {
+              attrs: ['img:src', 'link:href']
+            }
+          }
+        ]
       },
+      {
+        // 匹配favicon文件
+        test: /favicon\.ico$/,
+        /*
+          使用html-loader，将 html内容存为js字符串
+          例如：import htmlString from './template.html',html的文件的内容会被转为一个js的字符串，合并到js文件中
+        */
+        use: [
+          {
+            loader: 'file-loader',
+            options: {
+              name: '[hash].[ext]'
+            }
+          }
+        ]
+      },
+
       {
         // 匹配css文件
         test: /\.css$/,
@@ -69,6 +107,7 @@ module.exports = {
       {
         // 匹配各种字体/文件/图片
         test: /\.(png|jpg|jpeg|gif|eot|ttf|woff|woff2|svg|svgz)(\?.+)?$/,
+        exclude: /favicon\.ico$/,
         /*
           使用url-loader，它接受一个limit 参数，单位字节(byte)
           当体积小于limit时，url-loader把文件转化为Data URI的格式内联到引用的地方
@@ -112,8 +151,11 @@ module.exports = {
       // 考虑到webpack的兼容性，fchunksSortMode的参数要设置为none
       chunksSortMode: 'none'
     })
-  ]
-
+    // new webpack.HashedModuleIdsPlugin()
+  ],
+  performance: {
+    hints: dev ? false : 'warning'
+  }
 }
 
 /*
@@ -128,7 +170,17 @@ module.exports = {
 if (dev) {
   module.exports.serve = {
     // 监听端口
-    port: 8084
+    port: config.serve.port,
+    host: '0.0.0.0',
+    dev: {
+      publicPath: config.publicPath
+    },
+    hot: {
+      host: {
+        client: internalIp.v4.sync(),
+        server: '0.0.0.0'
+      }
+    },
     // add 给服务koa 实例注入 middleware 增加功能
     /*
       配置 SPA 入口
@@ -139,9 +191,11 @@ if (dev) {
       http://localhost:8080/index.html
       这个文件
     */
-    // add: app => {
-    //   app.use(convert(history()))
-    // }
+    add: app => {
+      app.use(convert(history({
+        index: url.parse(config.publicPath).pathname // index.html在文件 /assets/路径下
+      })))
+    }
 
   }
 }

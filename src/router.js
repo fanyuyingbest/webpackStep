@@ -1,10 +1,11 @@
 // 引入页面 文件
-import foo from './views/foo'
-import bar from './views/bar'
+// import foo from './views/foo'
+// import bar from './views/bar'
+import 'regenerator-runtime/runtime'
 
 const routes = {
-  '/foo': foo,
-  '/bar': bar
+  '/foo': () => import('./views/foo'),
+  '/bar': () => import('./views/bar')
 }
 
 // Router l类，用来控制页面根据当前 URl 切换
@@ -26,11 +27,12 @@ class Router {
   }
 
   // 加载path路径
-  load (path) {
+  async load (path) {
     if (path === '/') {
       path = '/foo'
     }
-    const view = new routes[path]()
+    const View = (await routes[path]()).default
+    const view = new View()
     view.mount(document.body)
   }
 }
